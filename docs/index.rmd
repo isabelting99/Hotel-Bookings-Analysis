@@ -52,7 +52,7 @@ hotel <- hotel %>%
     "room_type"         = "room_type_reserved", 
     "is_repeated_guest" = "repeated_guest",
     "prev_cancel"       = "no_of_previous_cancellations",
-    "prev_kept"         = "no_of_previous_bookings_not_cancelled",
+    "prev_kept"         = "no_of_previous_bookings_not_canceled",
     "room_price_usd"    = "avg_price_per_room",
     "special_req"       = "no_of_special_requests"
   )
