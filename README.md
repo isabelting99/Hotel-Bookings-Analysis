@@ -1,2 +1,6 @@
 # hotel-bookings
-Analysis of Kaggle hotel bookings dataset using RStudio, SQL, and Tableau Public. Dataset retrieved at https://www.kaggle.com/datasets/ahsan81/hotel-reservations-classification-dataset/discussion.
+Analysis of Kaggle hotel bookings dataset using PostgreSQL, RStudio, and Tableau Public to clean, analyze, and visualize data. 
+
+Dataset retrieved at https://www.kaggle.com/datasets/ahsan81/hotel-reservations-classification-dataset/discussion. 
+
+See Tableau Public dashboard at https://public.tableau.com/views/AnalysisofHotelBookings2017-2018/AnalysisofHotelBookings2017-2018?:language=en-US&:display_count=n&:origin=viz_share_link. 
