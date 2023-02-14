@@ -36,6 +36,7 @@ library(pander)
 library(rempsyc)
 library(effectsize)
 library(readxl)
+library(stargazer)
 
 # Load dataset from excel
 hotel <- read_excel("C:/Users/Isabel/OneDrive/Documents/Kaggle/Hotel Bookings/hotel-bookings/hotel.xlsx", 
@@ -66,9 +67,9 @@ hotel <- hotel %>%
 cols <- c("booking_id", "booking_status", "meal_plan", "room_type", 
           "arrival_year", "arrival_month", "is_repeated_guest")
 hotel[cols] <- lapply(hotel[cols], as.factor)
-# Note: 'arrival_date' is not coded as a factor since months can be categorized into seasons (non-linear)
-# and years also appear to be distinct categories, but 'arrival_date' seems it can be treated 
-# as a continuous variable (beginning vs. end of month - linear)
+# Note: 'arrival_date' not coded as a factor bc months can be categorized into seasons (non-linear)
+# and years = distinct categories, but 'arrival_date' seems continuous 
+# (beginning vs. end of month - linear)
 
 # Convert euros to USD - use 1/1/2023 conversion rate
 hotel$room_price_usd <- round((hotel$room_price_usd)*1.0703,2)
@@ -105,6 +106,7 @@ hotel_train <- training(hotel_split)
 hotel_test  <- testing(hotel_split)
 
 # Logistic regression on training dataset: regress 'booking_status' on predictors
+set.seed(123)
 log_model_train <- glm(booking_status ~ meal_plan + btw_time + arrival_month + 
                          room_price_usd + special_req,
                          data = hotel_train, 
@@ -125,15 +127,15 @@ or_btw_time    <- exp(log_model_train$coefficients[4])
 or_room_price  <- exp(log_model_train$coefficients[16]) 
 or_special_req <- exp(log_model_train$coefficients[17]) 
 
-# Get SDs for 3 predictors
+# Get SDs for 5 predictors
 meal_plan_half_sd <- summary(log_model_train)$coefficients[2, 2]
 meal_plan_ns_sd   <- summary(log_model_train)$coefficients[3, 2]
 btw_time_sd       <- summary(log_model_train)$coefficients[4, 2]
 room_price_usd_sd <- summary(log_model_train)$coefficients[16,2]
 special_req_sd    <- summary(log_model_train)$coefficients[17,2]
 
-## Get 95% CI for 'meal_plannone,', 'btw_time,' 'room_price_usd,' 'special_req'
-# meal_planhalf 
+## Get 95% CI for 5 predictors
+# meal_planhalf
 upper_bound_meal_plan_half <- 
   exp((log_model_train$coefficients[2]) + 
         (1.96*meal_plan_half_sd))
@@ -202,7 +204,6 @@ lower_bound_meal_plan_half
 upper_bound_meal_plan_ns 
 lower_bound_meal_plan_ns 
 
-
 upper_bound_btw_time 
 lower_bound_btw_time 
 
@@ -222,7 +223,7 @@ pred <- log_model_train %>%
 
 # Double-check probabilities are for cancelling booking 
 # Note: probabilities refer to class dummy-coded as 1
-contrasts(hotel_test$booking_status)
+contrasts(hotel_test$booking_status) # check good 
 
 # Predict booking status for test dataset
 pred_test <- ifelse(pred > 0.5, 
@@ -321,6 +322,7 @@ sd_special_req_c <- sd(hotel$special_req[hotel$booking_status == "cancelled"]) #
 sd_special_req_k <- sd(hotel$special_req[hotel$booking_status == "kept"]) # 0.84
 ```
 
+
 ```{r}
 # Print SDs 
 sd_btw_time_c
@@ -363,35 +365,36 @@ This random forest model is appropriate for our classification task in predictin
 Random forest models using the bootstrap aggregation (a.k.a. bagging) method along with a collection decision trees produce more accurate predictions for the response variable than basic decision trees. As such, I will tinker with the number of trees and number of variables randomly sampled as candidates at each split in a decision tree to produce the most accurate random forest model. Then, I will test my predictions against the test dataset (n = 300), a subset of the original dataset, to determine the accuracy of my model. 
 
 ```{r}
-# Build random forest model 
-# using every variable as predictor except booking_id 
+# Build random forest model to predict cancellation status
 set.seed(123) 
 rf_model <- randomForest(booking_status ~ meal_plan + btw_time + arrival_month + 
-                        room_price_usd + special_req,
-                      data = hotel_train, 
-                      importance = T,
-                      proximity = T)
+                           room_price_usd + special_req,
+                         data = hotel_train, 
+                         importance = T,
+                         proximity = T)
 rf_model # 14.57% OOB error rate
 
-# Plot error rates to see if 500 trees enough
+# Get df to plot error rates to see if 500 trees is enough
 set.seed(123)
 oob.error.hotel <- data.frame(
   Trees = rep(1:nrow(rf_model$err.rate), times = 3),
   Type  = rep(c("OOB", "Cancelled", "Kept"), 
               each = nrow(rf_model$err.rate)), 
-# Note: Out-of-bag error rate: rate of wrongly classifying OOB sample (observations not chose for the random samples); rF model still predicted values for OOB data
   Error = c(rf_model$err.rate[,"OOB"], 
             rf_model$err.rate[,"cancelled"], 
             rf_model$err.rate[,"kept"])
 )
+# Note: Out-of-bag error rate: rate of wrongly classifying OOB sample (observations not chosen for the random samples); rF model still predicted values for OOB data
 
 head(oob.error.hotel)
 
+# Plot error rates
 ggplot(data = oob.error.hotel, 
        aes(x = Trees, y = Error)) +
   geom_line(aes(color = Type)) + 
   ggtitle("Error Rates of Random Forest Model")
-# Note: Higher error rate for 'cancelled' but 500 trees seems good (stay with default ntree)
+# Note: Higher error rate for 'cancelled' but 500 trees seems good 
+# (stay with default ntree in rF model )
 ```
 
 
@@ -399,6 +402,8 @@ ggplot(data = oob.error.hotel,
 # Determine if default mtry = 4 is best; test up to mtry = 10 
 oob.values <- vector(length = 10)
 
+# Create func to test diff rF models with diff mtry values
+# (see which OOB error rate lowest)
 for(i in 1:10){
   set.seed(123)
   temp.model    <- randomForest(booking_status ~ meal_plan + btw_time + arrival_month +
@@ -414,7 +419,7 @@ oob.values
 
 
 ```{r}
-# Get plot of important variables
+# Get plot of important variables in predicting booking status
 set.seed(123)
 varImpPlot(rf_model, 
            main = "Most Important Predictors of Booking Status") 
@@ -426,7 +431,7 @@ varImpPlot(rf_model,
 In both the Mean Decrease in Accuracy and Mean Decrease in Gini plots, between time ranks as the most important predictor in determining booking status by far, as shown through its outlier status on the far right of the plots. Although all the other predictors aside from arrival month have statistically significant coefficients in the logistic regression model, these plots suggest that between time has the strongest correlation with booking status among the predictors. 
 
 ```{r}
-# Get prediction
+# Get prediction of cancellation statuses on test data using rF model
 set.seed(123)
 prediction <- predict(rf_model, hotel_test)
 try1       <- data.frame(booking_id = hotel_test$booking_id, 
